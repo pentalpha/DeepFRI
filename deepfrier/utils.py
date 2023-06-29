@@ -134,7 +134,8 @@ def seq2onehot(seq):
 
     embed_x = [vocab_embed[v] for v in seq]
     seqs_x = np.array([vocab_one_hot[j, :] for j in embed_x])
-
+    print(seqs_x[0])
+    print(seqs_x.shape)
     return seqs_x
 
 

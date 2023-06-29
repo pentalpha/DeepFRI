@@ -68,6 +68,12 @@ class Predictor(object):
         self.gonames = np.asarray(metadata['gonames'])
         self.goterms = np.asarray(metadata['goterms'])
         self.thresh = 0.1*np.ones(len(self.goterms))
+        
+        print('\nConcat layer:')
+        self.concat_layer = self.model.get_layer(index=10)
+        print(self.concat_layer)
+        print(type(self.concat_layer))
+        self.intermediate_layer_model = tf.keras.Model(inputs=self.model.input, outputs=self.concat_layer.output)
 
     def _load_cmap(self, filename, cmap_thresh=10.0):
         if filename.endswith('.pdb'):
@@ -104,6 +110,7 @@ class Predictor(object):
         self.data = {}
         self.test_prot_list = [chain]
         if self.gcn:
+            print('self.gcn')
             A, S, seqres = self._load_cmap(test_prot, cmap_thresh=cmap_thresh)
 
             y = self.model([A, S], training=False).numpy()[:, :, 0].reshape(-1)
@@ -111,14 +118,24 @@ class Predictor(object):
             self.prot2goterms[chain] = []
             self.data[chain] = [[A, S], seqres]
             go_idx = np.where((y >= self.thresh) == True)[0]
+
+            print('Hidden output:')
+            hidden_output = self.intermediate_layer_model([A, S], training=False).numpy()[:, :, 0]
+            print(hidden_output.shape)
+            print(hidden_output[0])
+            print(hidden_output.reshape(-1).shape)
+            print(hidden_output.reshape(-1))
             for idx in go_idx:
                 if idx not in self.goidx2chains:
                     self.goidx2chains[idx] = set()
                 self.goidx2chains[idx].add(chain)
                 self.prot2goterms[chain].append((self.goterms[idx], self.gonames[idx], float(y[idx])))
         else:
+            print('seq2onehot')
             S = seq2onehot(str(test_prot))
             S = S.reshape(1, *S.shape)
+            print(S[0])
+            print(S.shape)
             y = self.model(S, training=False).numpy()[:, :, 0].reshape(-1)
             self.Y_hat[0] = y
             self.prot2goterms[chain] = []
