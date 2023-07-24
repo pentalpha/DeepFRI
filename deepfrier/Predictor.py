@@ -6,6 +6,7 @@ import gzip
 import secrets
 
 import numpy as np
+from tqdm import tqdm
 import tensorflow as tf
 
 from .utils import load_catalogue, load_FASTA, load_predicted_PDB, seq2onehot
@@ -50,7 +51,8 @@ class Predictor(object):
     """
     Class for loading trained models and computing GO/EC predictions and class activation maps (CAMs).
     """
-    def __init__(self, model_prefix, gcn=True):
+    def __init__(self, model_prefix, gcn=True, ont=None):
+        self.ont_code = ont
         self.model_prefix = model_prefix
         self.gcn = gcn
         self._load_model()
@@ -70,7 +72,7 @@ class Predictor(object):
         self.thresh = 0.1*np.ones(len(self.goterms))
         
         print('\nConcat layer:')
-        self.concat_layer = self.model.get_layer(index=10)
+        self.concat_layer = self.model.get_layer(index=11)
         print(self.concat_layer)
         print(type(self.concat_layer))
         self.intermediate_layer_model = tf.keras.Model(inputs=self.model.input, outputs=self.concat_layer.output)
@@ -94,7 +96,7 @@ class Predictor(object):
             A = np.double(D < cmap_thresh)
             os.remove(rnd_fn)
         else:
-            raise ValueError("File must be given in *.npz or *.pdb format.")
+            raise ValueError("File must be given in *.npz or *.pdb format, not:"+filename)
         # ##
         S = seq2onehot(seq)
         S = S.reshape(1, *S.shape)
@@ -119,12 +121,14 @@ class Predictor(object):
             self.data[chain] = [[A, S], seqres]
             go_idx = np.where((y >= self.thresh) == True)[0]
 
-            print('Hidden output:')
-            hidden_output = self.intermediate_layer_model([A, S], training=False).numpy()[:, :, 0]
+            '''print('Hidden output:')
+            hidden_output = self.intermediate_layer_model([A, S], training=False).numpy().reshape(-1)
+            print(hidden_output_raw.shape)
+            hidden_output = hidden_output_raw[:, :, 0]
             print(hidden_output.shape)
-            print(hidden_output[0])
+            #print(hidden_output[0])
             print(hidden_output.reshape(-1).shape)
-            print(hidden_output.reshape(-1))
+            #print(hidden_output.reshape(-1))'''
             for idx in go_idx:
                 if idx not in self.goidx2chains:
                     self.goidx2chains[idx] = set()
@@ -150,15 +154,31 @@ class Predictor(object):
     def predict_from_PDB_dir(self, dir_name, cmap_thresh=10.0):
         print ("### Computing predictions from directory with PDB files...")
         pdb_fn_list = glob.glob(dir_name + '/*.pdb*')
+        pdb_fn_list = [x for x in pdb_fn_list if not x.endswith('.tmp')]
+        pdb_fn_list.sort()
         self.chain2path = {pdb_fn.split('/')[-1].split('.')[0]: pdb_fn for pdb_fn in pdb_fn_list}
         self.test_prot_list = list(self.chain2path.keys())
         self.Y_hat = np.zeros((len(self.test_prot_list), len(self.goterms)), dtype=float)
         self.goidx2chains = {}
         self.prot2goterms = {}
         self.data = {}
+        total = len(self.test_prot_list)
+        bar = tqdm(total=3000)
+        structure_features = []
+        pdb_names = []
+        n = 0
         for i, chain in enumerate(self.test_prot_list):
+            pdb_name = self.chain2path[chain].split('/')[-1]
+            pdb_names.append(pdb_name)
             A, S, seqres = self._load_cmap(self.chain2path[chain], cmap_thresh=cmap_thresh)
-            y = self.model([A, S], training=False).numpy()[:, :, 0].reshape(-1)
+            hidden_output = self.intermediate_layer_model([A, S], training=False).numpy().reshape(-1)
+            #print(hidden_output.shape)
+            structure_features.append(hidden_output)
+            n += 1
+            if n >= 3000:
+                break
+            bar.update(1)
+            '''y = self.model([A, S], training=False).numpy()[:, :, 0].reshape(-1)
             self.Y_hat[i] = y
             self.prot2goterms[chain] = []
             self.data[chain] = [[A, S], seqres]
@@ -167,7 +187,15 @@ class Predictor(object):
                 if idx not in self.goidx2chains:
                     self.goidx2chains[idx] = set()
                 self.goidx2chains[idx].add(chain)
-                self.prot2goterms[chain].append((self.goterms[idx], self.gonames[idx], float(y[idx])))
+                self.prot2goterms[chain].append((self.goterms[idx], self.gonames[idx], float(y[idx])))'''
+        bar.close()
+        print('Saving names')
+        open(self.ont_code+'_structure_names.txt', 'w').write("\n".join(pdb_names)+'\n')
+        print("Converting features to numpy df")
+        structure_features = np.asarray(structure_features)
+        print('Saving features')
+        np.save(self.ont_code+"_structure_features.npy", structure_features)
+
 
     def predict_from_catalogue(self, catalogue_fn, cmap_thresh=10.0):
         print ("### Computing predictions from catalogue...")

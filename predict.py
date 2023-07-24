@@ -32,7 +32,7 @@ if __name__ == "__main__":
     models = params['models']
 
     for ont in args.ontology:
-        predictor = Predictor(models[ont], gcn=gcn)
+        predictor = Predictor(models[ont], gcn=gcn, ont=ont)
         if args.seq is not None:
             predictor.predict(args.seq)
         if args.cmap is not None:
