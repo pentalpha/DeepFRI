@@ -2,15 +2,40 @@ import csv
 import glob
 import numpy as np
 import tensorflow as tf
+from typing import List
+import subprocess
 from sklearn.metrics import average_precision_score
 
-from Bio import SeqIO
-from Bio.PDB.PDBParser import PDBParser
 
+import warnings
+from Bio import BiopythonExperimentalWarning, BiopythonParserWarning, BiopythonWarning
+with warnings.catch_warnings():
+    warnings.simplefilter('ignore', BiopythonParserWarning, append=True)
+    warnings.simplefilter('ignore', BiopythonWarning, append=True)
+    from Bio import SeqIO
+    from Bio.PDB.PDBParser import PDBParser
+
+def run_command(cmd_vec: List[str], stdin="", no_output=True):
+    '''Executa um comando no shell e retorna a saída (stdout) dele.'''
+    cmd_vec = " ".join(cmd_vec)
+    #logging.info(cmd_vec)
+    if no_output:
+        #print(cmd_vec)
+        result = subprocess.run(cmd_vec, shell=True)
+        return ""
+    else:
+        result = subprocess.run(cmd_vec, capture_output=True, 
+            text=True, input=stdin, shell=True)
+        return result.stdout
+
+def chunks(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
 
 def load_predicted_PDB(pdbfile):
     # Generate (diagonalized) C_alpha distance matrix from a pdbfile
-    parser = PDBParser()
+    parser = PDBParser(QUIET=True)
     structure = parser.get_structure(pdbfile.split('/')[-1].split('.')[0], pdbfile)
     residues = [r for r in structure.get_residues()]
 

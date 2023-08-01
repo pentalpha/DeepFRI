@@ -1,3 +1,14 @@
+# DeepFried Proteins
+
+This fork creates the DeepFried Proteins dataset, which includes features predicted by DeepFRI for alphafold PDBs of proteins from CAFA5 competition.
+
+First, download train_ids.npy from https://www.kaggle.com/datasets/sergeifironov/t5embeds?select=train_ids.npy to the DEEPFRI directory.
+
+Them, call the download script:
+
+python download_pdbs.py <pdbs_dir>
+python create_dataset.py --pdb_dir <pdbs_dir> -ont mf -v
+
 # DeepFRI
 Deep functional residue identification
 <img src="figs/pipeline.png">

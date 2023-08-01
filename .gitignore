@@ -24,3 +24,9 @@ build/*
 newest_trained_models.tar.gz
 DeepFRI_MF_pred_scores.json
 DeepFRI_MF_predictions.csv
+
+mf_*
+cc_*
+bp_*
+dataset/*
+train_ids.npy

@@ -1,4 +1,5 @@
 import os
+from os import path
 import csv
 import glob
 import json
@@ -150,6 +151,43 @@ class Predictor(object):
                     self.goidx2chains[idx] = set()
                 self.goidx2chains[idx].add(chain)
                 self.prot2goterms[chain].append((self.goterms[idx], self.gonames[idx], float(y[idx])))
+
+    def predict_from_PDB_list(self, pdb_fn_list, sublist_name, subdataset_dir, cmap_thresh=10.0):
+        self.chain2path = {pdb_fn.split('/')[-1].split('.')[0]: pdb_fn for pdb_fn in pdb_fn_list}
+        self.test_prot_list = list(self.chain2path.keys())
+        self.Y_hat = np.zeros((len(self.test_prot_list), len(self.goterms)), dtype=float)
+        self.goidx2chains = {}
+        self.prot2goterms = {}
+        self.data = {}
+        
+        pdb_names = []
+        input_data = []
+        for i, chain in enumerate(self.test_prot_list):
+            pdb_name = self.chain2path[chain].split('/')[-1]
+            pdb_names.append(pdb_name)
+            A, S, seqres = self._load_cmap(self.chain2path[chain], cmap_thresh=cmap_thresh)
+            input_data.append((pdb_name, A, S))
+        
+        structure_features = []
+        n = 0
+        bar = tqdm(total=len(input_data))
+        for pdb_name, A, S in input_data:
+            hidden_output = self.intermediate_layer_model([A, S], training=False).numpy().reshape(-1)
+            #print(hidden_output.shape)
+            structure_features.append(hidden_output)
+            n += 1
+            bar.update(1)
+        bar.close()
+        print('Saving names')
+        structure_names_path = path.join(subdataset_dir, 
+            self.ont_code+'_structure_names_'+sublist_name+'.txt')
+        open(structure_names_path, 'w').write("\n".join(pdb_names)+'\n')
+        print("Converting features to numpy df")
+        structure_features = np.asarray(structure_features)
+        print('Saving features')
+        structure_features_path = path.join(subdataset_dir, 
+            self.ont_code+'_structure_features_'+sublist_name)
+        np.save(structure_features_path, structure_features)
 
     def predict_from_PDB_dir(self, dir_name, cmap_thresh=10.0):
         print ("### Computing predictions from directory with PDB files...")
