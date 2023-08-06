@@ -17,12 +17,13 @@ def read_pdbdir(pdbdir_path):
     return pdb_fn_list
 
 def predict_features(pdb_sublist, sublist_name, subdataset_dir, model, gcn, ont):
-    okay_path = path.join(subdataset_dir, 
-            ont+'_'+sublist_name+'.okay')
-    if not path.exists(okay_path):
-        predictor = Predictor(model, gcn=gcn, ont=ont)
-        predictor.predict_from_PDB_list(pdb_sublist, sublist_name, subdataset_dir)
-        open(okay_path, 'w').write('okay')
+    if len(pdb_sublist) > 0:
+        okay_path = path.join(subdataset_dir, 
+                ont+'_'+sublist_name+'.okay')
+        if not path.exists(okay_path):
+            predictor = Predictor(model, gcn=gcn, ont=ont)
+            predictor.predict_from_PDB_list(pdb_sublist, sublist_name, subdataset_dir)
+            open(okay_path, 'w').write('okay')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -56,7 +57,8 @@ if __name__ == "__main__":
     pdbs = read_pdbdir(args.pdb_dir)
     pdb_chunks = []
     i = 0
-    for chunk in chunks(pdbs, 200):
+    pdb_per_chunk = 200
+    for chunk in chunks(pdbs, pdb_per_chunk):
         pdb_chunks.append(chunk)
         i += 1
         #if i == processes*2:
@@ -69,13 +71,33 @@ if __name__ == "__main__":
         mkdir(dataset_path)
     
     for ont in ['mf', 'bp', 'cc']:
-        with Pool(3) as p:
-            subdataset_dir = path.join(dataset_path, ont)
-            if not path.exists(subdataset_dir):
-                mkdir(subdataset_dir)
-            #predictor = lambda list_tp: predict_features(list_tp[0], list_tp[1], subdataset_dir, models[ont], gcn, ont)
-            arg_list = []
-            for chunk_i in range(len(pdb_chunks)):
-                arg_list.append((pdb_chunks[chunk_i], str(chunk_i), subdataset_dir, models[ont], gcn, ont))
-            #print(arg_list)
-            p.starmap(predict_features, arg_list)
+        print(ont.upper())
+        loaded_names_path = path.join(dataset_path, ont + '_structure_names.txt')
+        structures_processed = set(open(loaded_names_path, 'r').read().split('\n'))
+
+        pdb_chunks_to_use = []
+        i = 0
+        n = 0
+        for chunk in pdb_chunks:
+            processed_n = sum([x.split('-')[1] in structures_processed 
+                        for x in chunk])
+            if processed_n < pdb_per_chunk*0.05:
+                pdb_chunks_to_use.append(chunk)
+                n += 1
+            else:
+                pdb_chunks_to_use.append([])
+                #print(i, 'already processed')
+            i += 1
+        print(n, 'chunks to process')
+        if len(pdb_chunks_to_use) > 0:
+            with Pool(3) as p:
+                subdataset_dir = path.join(dataset_path, ont)
+                
+                if not path.exists(subdataset_dir):
+                    mkdir(subdataset_dir)
+                #predictor = lambda list_tp: predict_features(list_tp[0], list_tp[1], subdataset_dir, models[ont], gcn, ont)
+                arg_list = []
+                for chunk_i in range(len(pdb_chunks_to_use)):
+                    arg_list.append((pdb_chunks_to_use[chunk_i], str(chunk_i), subdataset_dir, models[ont], gcn, ont))
+                #print(arg_list)
+                p.starmap(predict_features, arg_list)
