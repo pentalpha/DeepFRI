@@ -164,9 +164,13 @@ class Predictor(object):
         input_data = []
         for i, chain in enumerate(self.test_prot_list):
             pdb_name = self.chain2path[chain].split('/')[-1]
-            pdb_names.append(pdb_name)
-            A, S, seqres = self._load_cmap(self.chain2path[chain], cmap_thresh=cmap_thresh)
-            input_data.append((pdb_name, A, S))
+            try:
+                A, S, seqres = self._load_cmap(self.chain2path[chain], cmap_thresh=cmap_thresh)
+                input_data.append((pdb_name, A, S))
+                pdb_names.append(pdb_name)
+            except Exception as err:
+                print('Error loading', self.chain2path[chain], pdb_name)
+                print(err)
         
         structure_features = []
         n = 0
