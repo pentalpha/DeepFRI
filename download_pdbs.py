@@ -9,7 +9,7 @@ train_protein_ids_path = 'train_ids.npy'
 test_protein_ids_path = 'test_ids.npy'
 alphafold_url = 'https://alphafold.ebi.ac.uk/files/'
 
-def download_pdbs(alphafold_dir):
+def download_pdbs(alphafold_dir, mode):
     print('Loading protein ids')
     ids_path = train_protein_ids_path
     if mode == 'test':
