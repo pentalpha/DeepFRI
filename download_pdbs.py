@@ -6,11 +6,15 @@ import sys
 from deepfrier.utils import run_command
 
 train_protein_ids_path = 'train_ids.npy'
+test_protein_ids_path = 'test_ids.npy'
 alphafold_url = 'https://alphafold.ebi.ac.uk/files/'
 
 def download_pdbs(alphafold_dir):
     print('Loading protein ids')
-    train_protein_ids = np.load(train_protein_ids_path)
+    ids_path = train_protein_ids_path
+    if mode == 'test':
+        ids_path = test_protein_ids_path
+    train_protein_ids = np.load(ids_path)
     print(train_protein_ids[0])
     af_ids = []
 
@@ -29,4 +33,9 @@ def download_pdbs(alphafold_dir):
                          '&&', 'mv', tmp_path, savepath])
 
 download_dir = sys.argv[1]
-download_pdbs(download_dir)
+t5_embeds_dir = sys.argv[2]
+mode = sys.argv[3]
+train_protein_ids_path = path.join(t5_embeds_dir, train_protein_ids_path)
+test_protein_ids_path = path.join(t5_embeds_dir, test_protein_ids_path)
+
+download_pdbs(download_dir, mode)
