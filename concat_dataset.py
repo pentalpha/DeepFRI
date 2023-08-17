@@ -1,7 +1,7 @@
 import sys
 import glob
 import numpy as np
-from os import path
+from os import path, mkdir
 from tqdm import tqdm
 
 def read_okayed_chunks(datasets_dir, aspect):
@@ -48,7 +48,7 @@ def concat_all(datasets_dir, name_chunks, feature_chunks, aspect):
     with open(output_names_file, 'w') as output:
         for line in names_vec:
             output.write(line.split('-')[1] +'\n')
-    
+     
     return output_names_file, output_features_file
 
 dataset_dir = sys.argv[1]
@@ -66,6 +66,10 @@ for aspect in aspects:
     aspect_dfs.append((aspect, output_names_file, output_features_file))
 
 
+final_dataset_path = 'final_dataset'
+if not path.exists(final_dataset_path):
+    mkdir(final_dataset_path)
+
 print('Loading T5EMBEDS')
 t5_names  = np.load(protein_ids_path)
 t5_embeds = np.load(embeds_path)
@@ -76,12 +80,15 @@ prot_name_to_index = {t5_names[i]: i for i in range(len(t5_names))}
 print('Adding sequential features to structural features')
 for aspect, names_file, features_file in aspect_dfs:
     print(aspect, names_file, features_file)
-    deepfri_names = open(names_file, 'r').read().split('\n')
+    deepfri_names = open(names_file, 'r').read().rstrip('\n').split('\n')
     deepfri_features = np.load(features_file)
+    print('Joining features')
     all_embeds = [np.concatenate([t5_embeds[prot_name_to_index[deepfri_names[i]]], 
                deepfri_features[i]]) for i in tqdm(range(len(deepfri_names)))]
+    print('Converting to np array')
     all_embeds = np.asarray(all_embeds)
-    output_path = features_file.replace('.npy', '_complete.npy')
-    np.save(output_path, all_embeds)
-
-
+    features_final_path = path.join(final_dataset_path, mode+'_features_'+aspect+'.npy')
+    names_final_path = path.join(final_dataset_path, mode+'_ids_'+aspect+'.npy')
+    print('Saving')
+    np.save(features_final_path, all_embeds)
+    np.save(names_final_path, np.array(deepfri_names))

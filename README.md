@@ -6,8 +6,22 @@ First, download https://www.kaggle.com/datasets/sergeifironov/t5embeds
 
 Them, call the download script:
 
-python download_pdbs.py <pdbs_dir> <t5_embeds_dir> <train|test>
-python create_dataset.py --pdb_dir <pdbs_dir> -ont mf -v
+```
+$ python download_pdbs.py alphafold_train <t5_embeds_dir> train
+$ python download_pdbs.py alphafold_test <t5_embeds_dir> test
+
+$ python create_dataset.py --pdb_dir alphafold_test -ont mf -v
+$ mv dataset dataset_test
+$ python create_dataset.py --pdb_dir alphafold_train -ont mf -v
+
+$ python concat_dataset.py dataset <t5_embeds_dir> train
+$ python concat_dataset.py dataset_test <t5_embeds_dir> test
+
+$ ls final_dataset
+total 7,7G
+2,6G train_features_bp.npy  2,6G train_features_mf.npy  5,1M train_ids_cc.npy
+2,6G train_features_cc.npy  5,1M train_ids_bp.npy       5,1M train_ids_mf.npy
+```
 
 # DeepFRI
 Deep functional residue identification
